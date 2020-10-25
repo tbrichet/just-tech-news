@@ -1,3 +1,5 @@
+// This page controls routes for creating, updating, and deleting users
+
 const router = require('express').Router();
 const { User } = require('../../models');
 
