@@ -1,3 +1,5 @@
+// Collect the packaged group of API endpoints
+
 const router = require('express').Router();
 
 const apiRoutes = require('./api');

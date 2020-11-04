@@ -1,129 +1,144 @@
-// This page controls routes for creating, updating, and deleting users
-
 const router = require('express').Router();
-const { User } = require('../../models');
+const { User, Post, Vote } = require('../../models');
 
-// GET /api/users (Search All Users)
+// GET ALL USERS /api/users
 router.get('/', (req, res) => {
-    // Access our User model and run .findAll() method)
-    User.findAll({
-        // Do not retrieve user passwords
-        attributes: { exclude: ['password'] }
-      })
-        .then(dbUserData => res.json(dbUserData))
-        .catch(err => {
-          console.log(err);
-          res.status(500).json(err);
-        });
+  // Access our User model and run findAll() medhod
+  User.findAll({
+    // Do not return password when searching users
+    attributes: { exclude: ['password']}
+  })
+  .then(dbUserData => res.json(dbUserData))
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
   });
-
-// GET /api/users/1 (Search User by ID)
-router.get('/:id', (req, res) => {
-    User.findOne({
-        // Do not retrieve user passwords
-        attributes: { exclude: ['password'] },
-        where: {
-          id: req.params.id
-        }
-      })
-        .then(dbUserData => {
-          if (!dbUserData) {
-            res.status(404).json({ message: 'No user found with this id' });
-            return;
-          }
-          res.json(dbUserData);
-        })
-        .catch(err => {
-          console.log(err);
-          res.status(500).json(err);
-        });
-  });
-
-// POST /api/users (Create New User)
-router.post('/', (req, res) => {
-    // expects {username: 'Lernantino', email: 'lernantino@gmail.com', password: 'password1234'}
-    User.create({
-      username: req.body.username,
-      email: req.body.email,
-      password: req.body.password
-    })
-      .then(dbUserData => res.json(dbUserData))
-      .catch(err => {
-        console.log(err);
-        res.status(500).json(err);
-      });
-  });
-
-// Allow Users to Log Into Account
-router.post('/login', (req, res) => {
-    // expects {email: 'lernantino@gmail.com', password: 'password1234'}
-      User.findOne({
-        where: {
-          email: req.body.email
-        }
-      }).then(dbUserData => {
-        if (!dbUserData) {
-          res.status(400).json({ message: 'No user with that email address!' });
-          return;
-        }
-    
-        //res.json({ user: dbUserData });
-    
-        // Verify user
-        const validPassword = dbUserData.checkPassword(req.body.password);
-
-        if (!validPassword) {
-            res.status(400).json({ message: 'Incorrect password!' });
-            return;
-        }
-          
-        res.json({ user: dbUserData, message: 'You are now logged in!' });
-    
-      });  
 });
 
-// PUT /api/users/1 (Update Existing Data)
-router.put('/:id', (req, res) => {
-    // expects {username: 'Lernantino', email: 'lernantino@gmail.com', password: 'password1234'}
-  
-    // if req.body has exact key/value pairs to match the model, you can just use `req.body` instead
-    User.update(req.body, {
-        individualHooks: true,
-        where: {
-        id: req.params.id
+// GET ONE SPECIFIC USER /api/users/1
+router.get('/:id', (req, res) => {
+  User.findOne({
+    // Do not return password when searching users
+    attributes: { exclude: ['password']},
+    where: {
+      // find user by id
+      id: req.params.id
+    },
+    include: [
+    {
+      model: Post,
+      attributes: ['id', 'title', 'post_url', 'created_at']
+    },
+    // include the Comment model here:
+    {
+      model: Comment,
+      attributes: ['id', 'comment_text', 'created_at'],
+      include: {
+        model: Post,
+        attributes: ['title']
       }
-    })
-      .then(dbUserData => {
-        if (!dbUserData[0]) {
-          res.status(404).json({ message: 'No user found with this id' });
-          return;
-        }
-        res.json(dbUserData);
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).json(err);
-      });
+    },
+    {
+      model: Post,
+      attributes: ['title'],
+      through: Vote,
+      as: 'voted_posts'
+    }
+  ]
+  })
+  .then(dbUserData => {
+    if (!dbUserData) {
+      res.status(404).json({ message: 'No user found with this id'});
+      return;
+    }
+    res.json(dbUserData);
+  })
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
   });
+});
 
-// DELETE /api/users/1
-router.delete('/:id', (req, res) => {
-    User.destroy({
-      where: {
-        id: req.params.id
-      }
-    })
-      .then(dbUserData => {
-        if (!dbUserData) {
-          res.status(404).json({ message: 'No user found with this id' });
-          return;
-        }
-        res.json(dbUserData);
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).json(err);
-      });
+// POST CREATE NEW USER /api/users
+router.post('/', (req, res) => {
+  // expects { username:, email:, password:}
+  User.create({
+    username: req.body.username,
+    email: req.body.email,
+    password: req.body.password
+  })
+  .then(dbUserData => res.json(dbUserData))
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
   });
+});
+
+// POST USER LOGIN api/users/login
+router.post('/login', (req, res) => {
+  // expects { email:, password:}
+  User.findOne({
+    where: {
+      email: req.body.email
+    }
+  }).then(dbUserData => {
+    if (!dbUserData) {
+      res.status(400).json({ message: 'No user with that email address!'});
+      return;
+    }
+    
+    //Verify user
+    const validPassword = dbUserData.checkPassword(req.body.password);
+    if (!validPassword) {
+      res.status(400).json({ message: 'Incorrect password!'});
+      return;
+    }
+    res.json({ user: dbUserData, message: 'You are now logged in!' });
+  });
+});
+
+// PUT EDIT SPECIFIC USER DATA /api/users/1
+router.put('/:id', (req, res) => {
+  // expects { username, email, password}
+  // if req.body has exact key/value pairs to match the model, you can just use 'req.body' instead
+  User.update(req.body, {
+    // allow hooks
+    individualHooks: true,
+    where: {
+      id: req.params.id
+    }
+  })
+  .then(dbUserData => {
+    if (!dbUserData[0]) {
+      res.status(404).json({ message: 'No user found with this id'});
+      return;
+    }
+    res.json(dbUserData);
+  })
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
+  });
+});
+
+// DELETE USER /api/users/1
+router.delete('/:id', (req, res) => {
+  User.destroy({
+    where: {
+      id: req.params.id
+    }
+  })
+  .then(dbUserData => {
+    if (!dbUserData) {
+      res.status(404).json({ message: 'No user found with this id'});
+      return;
+    }
+    res.json(dbUserData);
+  })
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
+  });
+});
 
 module.exports = router;

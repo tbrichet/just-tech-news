@@ -1,42 +1,58 @@
-// This page controls the routes for posts made by the user
-
 const router = require('express').Router();
-const { Post, User } = require('../../models');
+const { Post, User, Vote, Comment } = require('../../models');
+const sequelize = require('../../config/connection');
 
-// get all posts
+// GET all posts
 router.get('/', (req, res) => {
-    console.log('======================');
-    Post.findAll({
-      // Query configuration
-      attributes: ['id', 'post_url', 'title', 'created_at'],
+  Post.findAll({
+    // Display posts by creation date
+    order: [['created_at', 'DESC']], 
 
-      // Order posts descending based on their creation date
-      order: [['created_at', 'DESC']], 
-
-      // JOIN with the user table (determine which user created each post)
-      include: [
-        {
+    attributes: ['id', 'post_url', 'title', 'created_at',
+    // Include vote count for post
+    [sequelize.literal('(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id'), 'vote_count']
+    ],
+    // JOIN to the User table
+    include: [
+      {
+        model: Comment,
+        attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+        include: {
           model: User,
           attributes: ['username']
         }
-      ]
-    })
-    // Create a Promise that captures the response from the database call
-    .then(dbPostData => res.json(dbPostData))
-    .catch(err => {
-      console.log(err);
-      res.status(500).json(err);
-    });
+      },
+      {
+        model: User,
+        attributes: ['username']
+      }
+    ]
+  })
+  .then(dbPostData => res.json(dbPostData))
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
   });
+});
 
-// Get a Single Post
+// GET one specific post
 router.get('/:id', (req, res) => {
   Post.findOne({
     where: {
       id: req.params.id
     },
-    attributes: ['id', 'post_url', 'title', 'created_at'],
+    attributes: ['id', 'post_url', 'title', 'created_at',
+    [sequelize.literal('(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'), 'vote_count']
+    ],
     include: [
+      {
+        model: Comment,
+        attributes: ['id', 'comment_text', 'post_id', 'user_id', 'created_at'],
+        include: {
+          model: User,
+          attributes: ['username']
+        }
+      },
       {
         model: User,
         attributes: ['username']
@@ -56,7 +72,8 @@ router.get('/:id', (req, res) => {
     });
 });
 
-// CREATE a Post
+
+//POST Create a post
 router.post('/', (req, res) => {
   // expects {title: 'Taskmaster goes public!', post_url: 'https://taskmaster.com/press', user_id: 1}
   Post.create({
@@ -71,7 +88,47 @@ router.post('/', (req, res) => {
     });
 });
 
-// UPDATE a Post's Title
+// PUT Upvote a Post /api/posts/upvote
+router.put('/upvote', (req, res) => {
+  // custom static method created in models/Post.js
+  Post.upvote(req.body, {Vote})
+    .then(updatedPostData => res.json(updatedPostData))
+    .catch(err => {
+      console.log(err);
+      res.status(400).json(err);
+    });
+});
+  // Original code - replaced by new method in Post.js when refactoring
+//   Vote.create({
+//     user_id: req.body.user_id,
+//     post_id: req.body.post_id
+//   }).then(() => {
+//     // then find the post we just voted on
+//     return Post.findOne({
+//       where: {
+//         id: req.body.post_id
+//       },
+//       attributes: [
+//         'id',
+//         'post_url',
+//         'title',
+//         'created_at',
+//         // use raw MySQL aggregate function query to get a count of how many votes the post has and return it under the name `vote_count`
+//         [
+//           sequelize.literal('(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'),
+//           'vote_count'
+//         ]
+//       ]
+//     })
+//     .then(dbPostData => res.json(dbPostData))
+//     .catch(err => {
+//       console.log(err);
+//       res.status(400).json(err);
+//     });
+//   });
+// });
+
+//PUT Update a post's title
 router.put('/:id', (req, res) => {
   Post.update(
     {
@@ -96,7 +153,7 @@ router.put('/:id', (req, res) => {
     });
 });
 
-// DELETE a Post
+//DELETE a post
 router.delete('/:id', (req, res) => {
   Post.destroy({
     where: {
@@ -116,7 +173,4 @@ router.delete('/:id', (req, res) => {
     });
 });
 
-
-
-  
-  module.exports = router;
+module.exports = router;
