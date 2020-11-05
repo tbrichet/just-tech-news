@@ -3,7 +3,7 @@ const { Comment } = require('../../models');
 
 // GET ALL COMMENTS
 router.get('/', (req, res) => {
-    Comment.findall({
+    Comment.findAll({
         attributes: ['id', 'post_url', 'title', 'created at']
     })
     .then(dbCommentData => res.json(dbCommentData))
@@ -15,16 +15,20 @@ router.get('/', (req, res) => {
 
 // CREATE A COMMENT
 router.post('/', (req, res) => {
+  // check the session
+  if (req.session) {
     Comment.create({
-        comment_text: req.body.comment_text,
-        user_id: req.body.user_id,
-        post_id: req.body.post_id
+      comment_text: req.body.comment_text,
+      post_id: req.body.post_id,
+      // use the id from the session
+      user_id: req.session.user_id
     })
-    .then(dbCommentData => res.json(dbCommentData))
-    .catch(err => {
+      .then(dbCommentData => res.json(dbCommentData))
+      .catch(err => {
         console.log(err);
         res.status(400).json(err);
-    });
+      });
+  }
 });
 
 router.delete('/:id', (req, res) => {
