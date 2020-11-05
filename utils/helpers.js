@@ -1,5 +1,15 @@
 // Helper Functions that are Called by Handlebars
 
+// Format URL and shorten if needed
+format_url: url => {
+  return url
+    .replace('http://', '')
+    .replace('https://', '')
+    .replace('www.', '')
+    .split('/')[0]
+    .split('?')[0];
+}
+
 // Format Date
 module.exports = {
   format_date: date => {
@@ -23,12 +33,3 @@ module.exports = {
   }
 }
 
-// Format URL and shorten if needed
-format_url: url => {
-  return url
-    .replace('http://', '')
-    .replace('https://', '')
-    .replace('www.', '')
-    .split('/')[0]
-    .split('?')[0];
-},
